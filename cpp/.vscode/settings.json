@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "__mutex_base": "cpp",
+        "memory": "cpp",
+        "mutex": "cpp",
+        "__bit_reference": "cpp",
+        "algorithm": "cpp",
+        "deque": "cpp"
+    }
+}

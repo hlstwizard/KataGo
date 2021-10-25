@@ -145,6 +145,9 @@ static int handleSubcommand(const string& subcommand, const vector<string>& args
     cout << Version::getKataGoVersionFullInfo() << std::flush;
     return 0;
   }
+  else if(subcommand == "export") {
+      return MainCmds::exportdesc(subArgs);
+  }
   else {
     cout << "Unknown subcommand: " << subcommand << endl;
     printHelp(args);

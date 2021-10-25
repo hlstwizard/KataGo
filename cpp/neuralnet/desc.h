@@ -268,6 +268,7 @@ struct ModelDesc {
   ~ModelDesc();
   ModelDesc(std::istream& in, bool binaryFloats);
   ModelDesc(ModelDesc&& other);
+  ModelDesc(int, int, int, int, int, int);
 
   ModelDesc(const ModelDesc&) = delete;
   ModelDesc& operator=(const ModelDesc&) = delete;

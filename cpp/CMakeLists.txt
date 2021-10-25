@@ -7,6 +7,10 @@ include_directories(external)
 include_directories(external/tclap-1.2.2/include)
 include_directories(SYSTEM external/filesystem-1.5.8/include) #SYSTEM suppresses a few warnings
 
+set(CellarDir /usr/local/Cellar)
+include_directories(${CellarDir}/fmt/8.0.1/include)
+link_directories(${CellarDir}/fmt/8.0.1/lib)
+
 #--------------------------- PLATFORM SPECIFIC -------------------------------------------------------------------------
 
 if(APPLE)
@@ -23,12 +27,27 @@ if(NOT WIN32)
   set(ColorBoldRed "${ColorRed}${ColorBold}")
 endif()
 
+macro(ADD_FRAMEWORK fwname appname)
+  find_library(FRAMEWORK_${fwname}
+    NAMES ${fwname}
+    PATHS ${CMAKE_OSX_SYSROOT}/System/Library
+    PATH_SUFFIXES Frameworks
+    NO_DEFAULT_PATH)
+  if( ${FRAMEWORK_${fwname}} STREQUAL FRAMEWORK_${fwname}-NOTFOUND)
+    MESSAGE(ERROR ": Framework ${fwname} not found")
+  else()
+    TARGET_LINK_LIBRARIES(${appname} ${FRAMEWORK_${fwname}})
+    MESSAGE(STATUS "Framework ${fwname} found at ${FRAMEWORK_${fwname}}")
+  endif()
+endmacro(ADD_FRAMEWORK)
+
+
 #--------------------------- CMAKE VARIABLES (partly for Cmake GUI) ----------------------------------------------------
 
 set(BUILD_DISTRIBUTED 0 CACHE BOOL "Build with http support for contributing to distributed training")
 set(USE_BACKEND CACHE STRING "Neural net backend")
 string(TOUPPER "${USE_BACKEND}" USE_BACKEND)
-set_property(CACHE USE_BACKEND PROPERTY STRINGS "" CUDA TENSORRT OPENCL EIGEN)
+set_property(CACHE USE_BACKEND PROPERTY STRINGS "" CUDA TENSORRT OPENCL EIGEN COREML)
 
 set(USE_TCMALLOC 0 CACHE BOOL "Use TCMalloc")
 set(NO_GIT_REVISION 0 CACHE BOOL "Disable embedding the git revision into the compiled exe")
@@ -75,7 +94,12 @@ elseif(USE_BACKEND STREQUAL "EIGEN")
     message(STATUS "You can also specify USE_AVX2 (-DUSE_AVX2=1 on command line) if you have a modern CPU for better performance.")
   endif()
   set(NEURALNET_BACKEND_SOURCES
-    neuralnet/eigenbackend.cpp
+    neuralnet/eigenbackend.cpp)
+elseif(USE_BACKEND STREQUAL "COREML")
+  message("-DUSE_BACKEND=COREML, using CoreML backend")
+  set(NEURALNET_BACKEND_SOURCES
+    neuralnet/coremlbackend.mm
+    neuralnet/Katagob40.m
     )
 elseif(USE_BACKEND STREQUAL "")
   message(WARNING "${ColorBoldRed}WARNING: Using dummy neural net backend, intended for non-neural-net testing only, will fail on any code path requiring a neural net. To use neural net, specify -DUSE_BACKEND=CUDA or -DUSE_BACKEND=TENSORRT or -DUSE_BACKEND=OPENCL or -DUSE_BACKEND=EIGEN to compile with the respective backend.${ColorReset}")
@@ -292,6 +316,9 @@ elseif(USE_BACKEND STREQUAL "EIGEN")
       endif()
     endif()
   endif()
+elseif(USE_BACKEND STREQUAL "COREML")
+  target_compile_definitions(katago PRIVATE USE_COREML_BACKEND)
+  ADD_FRAMEWORK(CoreML katago)
 endif()
 
 if(USE_BIGGER_BOARDS_EXPENSIVE)
@@ -344,6 +371,8 @@ if(BUILD_DISTRIBUTED)
   include_directories(${OPENSSL_INCLUDE_DIR})
   include_directories(external/httplib)
 endif()
+
+target_link_libraries(katago fmt)
 
 #------------------------------------------------------------------------------------
 

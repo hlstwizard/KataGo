@@ -955,6 +955,19 @@ ModelDesc::ModelDesc()
     numScoreValueChannels(0),
     numOwnershipChannels(0) {}
 
+ModelDesc::ModelDesc(int version,
+          int numInputChannels,
+          int numInputGlobalChannels,
+          int numValueChannels,
+          int numScoreValueChannels,
+          int numOwnershipChannels)
+ : version(version),
+    numInputChannels(numInputChannels),
+    numInputGlobalChannels(numInputGlobalChannels),
+    numValueChannels(numValueChannels),
+    numScoreValueChannels(numScoreValueChannels),
+    numOwnershipChannels(numOwnershipChannels) {}
+
 ModelDesc::ModelDesc(istream& in, bool binaryFloats) {
   in >> name;
   in >> version;
@@ -1131,7 +1144,6 @@ void ModelDesc::loadFromFileMaybeGZipped(const string& fileName, ModelDesc& desc
     throw StringError("Error loading or parsing model file " + fileName + ": " + e.what());
   }
 }
-
 
 Rules ModelDesc::getSupportedRules(const Rules& desiredRules, bool& supported) const {
   static_assert(NNModelVersion::latestModelVersionImplemented == 10, "");
