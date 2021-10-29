@@ -4,7 +4,17 @@ project(libkatago)
 set(CMAKE_CXX_STANDARD 14)
 
 include_directories(../)
+include_directories(../book)
+include_directories(../command)
+include_directories(../core)
+include_directories(../dataio)
+include_directories(../distributed)
 include_directories(../external)
+include_directories(../game)
+include_directories(../neuralnet)
+include_directories(../program)
+include_directories(../search)
+include_directories(../tests)
 include_directories(../external/tclap-1.2.2/include)
 include_directories(SYSTEM ../external/filesystem-1.5.8/include) #SYSTEM suppresses a few warnings
 
@@ -249,6 +259,9 @@ add_library(katago STATIC
   ../command/sandbox.cpp
   ../command/selfplay.cpp
   ../command/tune.cpp
+  ../version.cpp
+  ../objc/Engine.mm
+  ../objc/Setup.mm
   )
 
 if(USE_BACKEND STREQUAL "CUDA")
