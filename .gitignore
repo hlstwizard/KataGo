@@ -59,6 +59,11 @@ out.txt
 # For Xcode
 cpp/Debug/
 cpp/katago.build/
+cpp/build.ios/Debug-iphonesimulator
+cpp/build.ios/katago.build
+cpp/build.ios/build
+cpp/build.ios/libkatago.xcodeproj
+cpp/build.ios/CMakeScripts
 
 # For cmake
 CMakeCache.txt
@@ -79,3 +84,5 @@ tmpsgf/
 watchgame.txt
 models/
 python/startposesupload.txt
+
+
