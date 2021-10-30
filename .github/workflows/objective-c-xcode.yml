@@ -13,7 +13,7 @@ jobs:
     
     defaults:
       run:
-        working-directory: ./cpp
+        working-directory: ./cpp/build.ios
 
     steps:
       - name: Checkout
