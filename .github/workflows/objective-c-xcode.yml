@@ -10,10 +10,19 @@ jobs:
   build:
     name: Build and analyse default scheme using xcodebuild command
     runs-on: macos-latest
+    
+    defaults:
+      run:
+        working-directory: ./cpp
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        
+      - name: CMake
+        run: |
+          cmake . -DPLATFORM=SIMULATOR64 -DDEPLOYMENT_TARGET=15.0 -DUSE_BACKEND=COREML -DNO_GIT_REVISION=1 -DCMAKE_TOOLCHAIN_FILE=./ios.toolchain.cmake  -G Xcode
+          echo Generate Xcode Project
       - name: Set Default Scheme
         run: |
           scheme_list=$(xcodebuild -list -json | tr -d "\n")
