@@ -8,6 +8,7 @@
 #pragma once
 
 #import <Foundation/Foundation.h>
+#import "types.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -16,7 +17,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (id) init: (NSString *)modelFile;
 
 - (NSArray*) getColors;
-- (int) genmove: (int8_t) pla;
+- (bool) set_position:(NSArray*) pairs;
+- (int) genmove: (Player) pla;
+- (bool) play: (Loc) loc :(Player) pla;
+- (bool) undo;
+
 
 @end
 
