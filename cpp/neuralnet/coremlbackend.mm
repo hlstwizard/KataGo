@@ -1,7 +1,9 @@
 #ifdef USE_COREML_BACKEND
 
-#include "../neuralnet/nninterface.h"
 #import <CoreML/CoreML.h>
+#import <TargetConditionals.h>
+
+#include "../neuralnet/nninterface.h"
 #include "../neuralnet/nninputs.h"
 #include "../neuralnet/nneval.h"
 #include "../neuralnet/modelversion.h"
@@ -69,8 +71,16 @@ struct LoadedModel {
     NSString *nsfile = [NSString stringWithCString:file.c_str() encoding:NSUTF8StringEncoding];
     
     NSError *error = nil;
-    NSData *data = [NSData dataWithContentsOfURL:
-                    [[NSBundle mainBundle] URLForResource:nsfile withExtension:@"plist"] options:0 error:&error];
+    
+#if TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
+    NSURL *url = [[NSBundle mainBundle] URLForResource:nsfile withExtension:@"plist"];
+    NSURL *modelUrl = [[NSBundle mainBundle] URLForResource:nsfile
+                                              withExtension:@"mlmodelc"];
+#elif TARGET_OS_OSX
+    NSURL *url = [NSURL fileURLWithPath: [NSString stringWithFormat: @"%@.plist", nsfile]];
+    NSURL *modelUrl = [NSURL fileURLWithPath: [NSString stringWithFormat: @"%@.mlmodelc", nsfile]];
+#endif
+    NSData *data = [NSData dataWithContentsOfURL:url options:0 error:&error];
     assert(error == nil);
     NSDictionary *descDict = [NSPropertyListSerialization propertyListWithData:data options:0 format:nil error:&error];
     assert(error == nil);
@@ -83,8 +93,7 @@ struct LoadedModel {
                           [descDict[@"numScoreValueChannels"] intValue],
                           [descDict[@"numOwnershipChannels"] intValue]);
     
-    NSURL *modelUrl = [[NSBundle mainBundle] URLForResource:nsfile
-                                              withExtension:@"mlmodelc"];
+
     
     model = [[Katagob40 alloc] initWithContentsOfURL:modelUrl error:&error];
     
@@ -108,7 +117,6 @@ string NeuralNet::getModelName(const LoadedModel* loadedModel) {
   return loadedModel->modelDesc.name;
 }
 int NeuralNet::getModelVersion(const LoadedModel* loadedModel) {
-  // TODO: - To confirm
   return loadedModel->modelDesc.version;
 }
 
@@ -177,7 +185,8 @@ struct InputBuffers {
     singleInputElts = (size_t)m.numInputChannels * xSize * ySize;
     singleInputGlobalElts = (size_t)m.numInputGlobalChannels;
     singlePolicyPassResultElts = (size_t)(1);
-    singlePolicyResultElts = (size_t)(xSize * ySize);
+//    singlePolicyResultElts = (size_t)NNPos::getPolicySize(xSize, ySize);
+    singlePolicyResultElts = (size_t)xSize * ySize;
     singleValueResultElts = (size_t)m.numValueChannels;
     singleScoreValueResultElts = (size_t)m.numScoreValueChannels;
     singleOwnershipResultElts = (size_t)m.numOwnershipChannels * xSize * ySize;
@@ -188,7 +197,7 @@ struct InputBuffers {
     userInputBufferElts = (size_t)m.numInputChannels * maxBatchSize * xSize * ySize;
     userInputGlobalBufferElts = (size_t)m.numInputGlobalChannels * maxBatchSize;
     policyPassResultBufferElts = (size_t)maxBatchSize * (1);
-    policyResultBufferElts = (size_t)maxBatchSize * (xSize * ySize);
+    policyResultBufferElts = (size_t)maxBatchSize * singlePolicyResultElts;
     valueResultBufferElts = (size_t)maxBatchSize * m.numValueChannels;
     scoreValueResultBufferElts = (size_t)maxBatchSize * m.numScoreValueChannels;
     ownershipResultBufferElts = (size_t)maxBatchSize * xSize * ySize * m.numOwnershipChannels;
@@ -198,12 +207,12 @@ struct InputBuffers {
     userInputGlobalBuffer = new float[(size_t)m.numInputGlobalChannels * maxBatchSize];
     
     policyPassResults = new float[(size_t)maxBatchSize * 1];
-    policyResults = new float[(size_t)maxBatchSize * xSize * ySize];
+    policyResults = new float[policyResultBufferElts];
     //        policyResultsHalf = new half_t[(size_t)maxBatchSize * xSize * ySize];
-    valueResults = new float[(size_t)maxBatchSize * m.numValueChannels];
+    valueResults = new float[valueResultBufferElts];
     
-    scoreValueResults = new float[(size_t)maxBatchSize * m.numScoreValueChannels];
-    ownershipResults = new float[(size_t)maxBatchSize * xSize * ySize * m.numOwnershipChannels];
+    scoreValueResults = new float[scoreValueResultBufferElts];
+    ownershipResults = new float[ownershipResultBufferElts];
     //        ownershipResultsHalf = new half_t[(size_t)maxBatchSize * xSize * ySize * m.numOwnershipChannels];
   }
   ~InputBuffers() {
@@ -349,29 +358,44 @@ void NeuralNet::getOutput(ComputeHandle* computeHandle,
     NNOutput *output = outputs[row];
     Katagob40Output *mloutput = mloutputs[row];
     
-    const float* policySrcBuf = inputBuffers->policyResults + row * inputBuffers->singlePolicyResultElts;
-    float* policyProbs = output->policyProbs;
+    // Policy
+    // Caution: Here the policy result size is xSize * ySize in real.
+    NSArray* expectedPolicyShape = @[@1, @2, @(inputBuffers->singlePolicyResultElts + 1)];
+     assert([mloutput.swa_model_policy_output.shape isEqualToArray: expectedPolicyShape]);
     
+    // Caution: Here we are using the second stride here in the result, which is just an assumption.
+    const float* policySrcBuf = (float*)mloutput.swa_model_policy_output.dataPointer + [mloutput.swa_model_policy_output.strides[1] intValue];
+    float* policyProbs = output->policyProbs;
+
     //These are not actually correct, the client does the postprocessing to turn them into
     //policy probabilities and white game outcome probabilities
     //Also we don't fill in the nnHash here either
     SymmetryHelpers::copyOutputsWithSymmetry(policySrcBuf, policyProbs, 1, nnYLen, nnXLen, inputBufs[row]->symmetry);
     policyProbs[inputBuffers->singlePolicyResultElts] = inputBuffers->policyPassResults[row];
     
+    // Value
     int numValueChannels = computeHandle->context->loadedModel->modelDesc.numValueChannels;
     assert(numValueChannels == 3);
+    NSArray* expectedValueShape = @[@1, @(numValueChannels)];
+    assert([mloutput.swa_model_value_output.shape isEqualToArray: expectedValueShape]);
+    
     output->whiteWinProb = [mloutput.swa_model_value_output[row * numValueChannels] floatValue];
     output->whiteLossProb = [mloutput.swa_model_value_output[row * numValueChannels + 1] floatValue];
     output->whiteNoResultProb = [mloutput.swa_model_value_output[row * numValueChannels + 2] floatValue];
     
+    // Ownership
+    NSArray* expectedOwnershipShape = @[@1, @(nnXLen), @(nnYLen)];
+    assert([mloutput.swa_model_ownership_output.shape isEqualToArray: expectedOwnershipShape]);
+    
     //As above, these are NOT actually from white's perspective, but rather the player to move.
     //As usual the client does the postprocessing.
     if(output->whiteOwnerMap != NULL) {
-      const float* ownershipSrcBuf = inputBuffers->ownershipResults + row * nnXLen * nnYLen;
+      const float* ownershipSrcBuf = (float*)mloutput.swa_model_ownership_output.dataPointer;
       assert(computeHandle->context->loadedModel->modelDesc.numOwnershipChannels == 1);
       SymmetryHelpers::copyOutputsWithSymmetry(ownershipSrcBuf, output->whiteOwnerMap, 1, nnYLen, nnXLen, inputBufs[row]->symmetry);
     }
     
+    // ScoreValue
     if(version >= 9) {
       int numScoreValueChannels = computeHandle->context->loadedModel->modelDesc.numScoreValueChannels;
       assert(numScoreValueChannels == 6);
