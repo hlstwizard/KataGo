@@ -156,6 +156,10 @@ static int handleSubcommand(const string& subcommand, const vector<string>& args
   return 0;
 }
 
+int MainCmds::exportdesc(const std::vector<std::string>& args) {
+  ;
+}
+
 
 int main(int argc, const char* const* argv) {
   vector<string> args = MainArgs::getCommandLineArgsUTF8(argc,argv);

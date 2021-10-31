@@ -59,6 +59,8 @@ out.txt
 # For Xcode
 cpp/Debug/
 cpp/katago.build/
+cpp/katago.xcodeproj/
+
 cpp/build.ios/Debug-iphonesimulator
 cpp/build.ios/libkatago.build
 cpp/build.ios/build

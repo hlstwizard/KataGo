@@ -8,8 +8,6 @@ include_directories(external/tclap-1.2.2/include)
 include_directories(SYSTEM external/filesystem-1.5.8/include) #SYSTEM suppresses a few warnings
 
 set(CellarDir /usr/local/Cellar)
-include_directories(${CellarDir}/fmt/8.0.1/include)
-link_directories(${CellarDir}/fmt/8.0.1/lib)
 
 #--------------------------- PLATFORM SPECIFIC -------------------------------------------------------------------------
 
