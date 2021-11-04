@@ -14,13 +14,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface Engine : NSObject
 
-- (id) init: (NSString *)modelFile;
+- (id) init:(NSString *)modelFile
+           :(NSString *)configFile;
 
-- (NSArray*) getColors;
-- (bool) set_position:(NSArray*) pairs;
-- (int) genmove: (Player) pla;
-- (bool) play: (Loc) loc :(Player) pla;
-- (bool) undo;
+- (void) runLoop;
+- (void) addInputRequest: (NSString *)requestBlob;
 
 
 @end
