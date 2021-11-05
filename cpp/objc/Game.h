@@ -16,7 +16,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (id) init: (NSString*) rules;
 
-- (NSString*) toJson;
+- (bool) makeMove: (Loc) loc :(Player) movePla;
+
+- (NSArray*) getColors;
+- (NSString*) toRequestJson;
 
 @end
 

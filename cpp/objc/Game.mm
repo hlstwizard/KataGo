@@ -38,8 +38,27 @@ using namespace std;
   return self;
 }
 
+// MARK: - Game
+- (bool) makeMove:(Loc)loc :(Player)movePla {
+  bool suc = _board.playMove(loc, movePla, false);
+  if (suc) {
+    Move m = Move(loc, movePla);
+    _moveHistory.push_back(m);
+  }
+  return suc;
+}
+
+- (NSArray*) getColors {
+  NSMutableArray *array = [[NSMutableArray alloc] init];
+  for (int i=0; i < _board.MAX_ARR_SIZE; i++) {
+    [array addObject: [NSNumber numberWithInt: _board.colors[i]]];
+  }
+  return [array copy];
+}
+
+// MARK: - Request Json
 /// example: [["W","P5"],["B","P6"]]
-- (NSString*) getMoves {
+- (NSString*) toMovesJson {
   NSMutableArray *moves = [[NSMutableArray alloc] init];
   for (vector<Move>::iterator it = _moveHistory.begin();
        it != _moveHistory.end(); ++it) {
@@ -54,11 +73,11 @@ using namespace std;
   return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
 }
 
-- (NSString*) toJson {
+- (NSString*) toRequestJson {
   NSString* requestId = [[[NSUUID alloc] init] UUIDString];
   NSDictionary* dict = [NSDictionary dictionaryWithObjectsAndKeys:
                         requestId, @"id",
-                        [self getMoves], @"moves",
+                        [self toMovesJson], @"moves",
                         nil];
   NSError *error;
   NSData *data = [NSJSONSerialization dataWithJSONObject:dict options:kNilOptions error:&error];

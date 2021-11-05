@@ -69,6 +69,7 @@ struct AnalyzeRequest {
 
 #ifdef __cplusplus
 @property /*(unsafe_unretained,assign,atomic)*/ ThreadSafeQueue<string*> *inputRequests;
+@property /*(unsafe_unretained,assign,atomic)*/ ThreadSafeQueue<string*> *results;
 #endif
 
 @end
@@ -82,6 +83,7 @@ struct AnalyzeRequest {
   _configFile = configFile;
   
   _inputRequests = new ThreadSafeQueue<string*>();
+  _results = new ThreadSafeQueue<string*>();
   
   return self;
 }
@@ -104,6 +106,7 @@ struct AnalyzeRequest {
 
 - (void)dealloc {
   delete _inputRequests;
+  delete _results;
 }
 
 /// Should be blocking and don't call in main thread
@@ -114,6 +117,16 @@ struct AnalyzeRequest {
   }
 }
 
+- (NSString*) fetchResult {
+  string *result;
+  if (_results->tryPop(result)) {
+    NSString *r = [[NSString alloc] initWithCString:result->c_str() encoding:NSUTF8StringEncoding];
+    delete result;
+    return r;
+  }
+  // No result
+  return @"";
+}
 
 //- (NSArray*) getColors {
 //  NSMutableArray *array = [[NSMutableArray alloc] init];
@@ -215,12 +228,17 @@ struct AnalyzeRequest {
   logger.write("Loaded model "+ _modelfile);
   
   ThreadSafeQueue<string*> toWriteQueue;
-  auto writeLoop = [&toWriteQueue,&logAllResponses,&logger]() {
+  auto writeLoop = [&self, &toWriteQueue,&logAllResponses,&logger]() {
     while(true) {
       string* message;
       bool suc = toWriteQueue.waitPop(message);
       if(!suc)
         break;
+      
+      // This will be fetched in the Swift App
+      string *result = new string(*message);
+      _results->pushUnsynchronized(result);
+      
       cout << *message << endl;
       if(logAllResponses)
         logger.write("Response: " + *message);

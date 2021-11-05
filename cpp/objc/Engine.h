@@ -19,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void) runLoop;
 - (void) addInputRequest: (NSString *)requestBlob;
-
+- (NSString*) fetchResult;
 
 @end
 
