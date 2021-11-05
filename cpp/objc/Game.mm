@@ -58,7 +58,7 @@ using namespace std;
 
 // MARK: - Request Json
 /// example: [["W","P5"],["B","P6"]]
-- (NSString*) toMovesJson {
+- (NSArray*) getMoves {
   NSMutableArray *moves = [[NSMutableArray alloc] init];
   for (vector<Move>::iterator it = _moveHistory.begin();
        it != _moveHistory.end(); ++it) {
@@ -68,16 +68,18 @@ using namespace std;
     [moves addObject:move];
   }
   
-  NSError *error;
-  NSData *data = [NSJSONSerialization dataWithJSONObject:moves options:kNilOptions error:&error];
-  return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+  return [moves copy];
 }
 
 - (NSString*) toRequestJson {
   NSString* requestId = [[[NSUUID alloc] init] UUIDString];
+  NSArray* moves = [self getMoves];
   NSDictionary* dict = [NSDictionary dictionaryWithObjectsAndKeys:
                         requestId, @"id",
-                        [self toMovesJson], @"moves",
+                        moves, @"moves",
+                        _rules, @"rules",
+                        [NSNumber numberWithInt: _xSize], @"boardXSize",
+                        [NSNumber numberWithInt: _ySize], @"boardYSize",
                         nil];
   NSError *error;
   NSData *data = [NSJSONSerialization dataWithJSONObject:dict options:kNilOptions error:&error];

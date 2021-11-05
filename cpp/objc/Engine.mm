@@ -7,6 +7,8 @@
 
 #import "Engine.h"
 #import <TargetConditionals.h>
+#import <string>
+#import <vector>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdocumentation"
@@ -22,7 +24,6 @@
 
 using namespace std;
 using json = nlohmann::json;
-
 
 struct AnalyzeRequest {
   int64_t internalId;

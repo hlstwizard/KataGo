@@ -262,7 +262,6 @@ add_library(katago STATIC
   ../version.cpp
   ../objc/Engine.mm
   ../objc/Setup.mm
-  ../objc/Game.mm
   )
 
 if(USE_BACKEND STREQUAL "CUDA")

@@ -67,6 +67,11 @@ cpp/build.ios/build
 cpp/build.ios/libkatago.xcodeproj
 cpp/build.ios/CMakeScripts
 
+cpp/build.ios-simulator/Debug-iphonesimulator
+cpp/build.ios-simulator/libkatago.build
+cpp/build.ios-simulator/build
+cpp/build.ios-simulator/libkatago.xcodeproj
+cpp/build.ios-simulator/CMakeScripts
 # For cmake
 CMakeCache.txt
 CMakeFiles/
