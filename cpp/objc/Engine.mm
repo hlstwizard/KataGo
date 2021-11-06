@@ -240,7 +240,9 @@ struct AnalyzeRequest {
       string *result = new string(*message);
       _results->pushUnsynchronized(result);
       
+#ifndef NDEBUG
       cout << *message << endl;
+#endif
       if(logAllResponses)
         logger.write("Response: " + *message);
       delete message;
@@ -415,6 +417,11 @@ struct AnalyzeRequest {
   if(!logToStderr) {
     cerr << "Started, ready to begin handling requests" << endl;
   }
+  
+  ///
+  json ret;
+  ret["initProcess"] = 1.0;
+  pushToWrite(new string(ret.dump()));
   
   /// Actual run loop
   auto requestLoop = [&]() {

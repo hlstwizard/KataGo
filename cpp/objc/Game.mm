@@ -71,11 +71,10 @@ using namespace std;
   return [moves copy];
 }
 
-- (NSString*) toRequestJson {
-  NSString* requestId = [[[NSUUID alloc] init] UUIDString];
+- (NSString*) toRequestJson: (NSString*) uuid {
   NSArray* moves = [self getMoves];
   NSDictionary* dict = [NSDictionary dictionaryWithObjectsAndKeys:
-                        requestId, @"id",
+                        uuid, @"id",
                         moves, @"moves",
                         _rules, @"rules",
                         [NSNumber numberWithInt: _xSize], @"boardXSize",
