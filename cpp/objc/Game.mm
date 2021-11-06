@@ -38,6 +38,11 @@ using namespace std;
   return self;
 }
 
++ (bool) tryLocOfString: (NSString*) str :(Loc*) loc :(NSNumber*) xSize :(NSNumber*) ySize {
+  bool suc = Location::tryOfString(string([str cStringUsingEncoding:NSUTF8StringEncoding]), xSize.intValue, ySize.intValue, *loc);
+  return suc;
+}
+
 // MARK: - Game
 - (bool) makeMove:(Loc)loc :(Player)movePla {
   bool suc = _board.playMove(loc, movePla, false);
@@ -46,6 +51,12 @@ using namespace std;
     _moveHistory.push_back(m);
   }
   return suc;
+}
+
+- (bool) makeMoveWithCoord: (NSString*) coord :(Player) movePla {
+  Loc loc;
+  Location::tryOfString(string([coord cStringUsingEncoding:NSUTF8StringEncoding]), _xSize, _ySize, loc);
+  return [self makeMove:loc :movePla];
 }
 
 - (NSArray*) getColors {

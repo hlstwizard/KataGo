@@ -14,6 +14,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface Game : NSObject
 
++ (bool) tryLocOfString: (NSString*) str :(Loc*) loc :(NSNumber*) xSize :(NSNumber*) ySize;
+
 - (id) init: (NSString*) rules;
 
 - (bool) makeMove: (Loc) loc :(Player) movePla;

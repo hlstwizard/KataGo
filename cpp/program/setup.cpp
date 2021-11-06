@@ -60,6 +60,8 @@ vector<NNEvaluator*> Setup::initializeNNEvaluators(
   string backendPrefix = "opencl";
   #elif defined(USE_EIGEN_BACKEND)
   string backendPrefix = "eigen";
+  #elif defined(USE_COREML_BACKEND)
+  string backendPrefix = "coreml";
   #else
   string backendPrefix = "dummybackend";
   #endif
