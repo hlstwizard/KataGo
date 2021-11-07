@@ -148,7 +148,6 @@ struct InputBuffers {
   
   size_t singleInputElts;
   size_t singleInputGlobalElts;
-  size_t singlePolicyPassResultElts;
   size_t singlePolicyResultElts;
   size_t singleValueResultElts;
   size_t singleScoreValueResultElts;
@@ -156,14 +155,8 @@ struct InputBuffers {
   
   size_t userInputBufferElts;
   size_t userInputGlobalBufferElts;
-  size_t policyPassResultBufferElts;
-  size_t policyResultBufferElts;
-  size_t valueResultBufferElts;
-  size_t scoreValueResultBufferElts;
-  size_t ownershipResultBufferElts;
   
   float* userInputBuffer; //Host pointer
-  //    half_t* userInputBufferHalf; //Host pointer
   float* userInputGlobalBuffer; //Host pointer
   
   InputBuffers(const LoadedModel* loadedModel, int maxBatchSz, int nnXLen, int nnYLen) {
@@ -176,9 +169,7 @@ struct InputBuffers {
     
     singleInputElts = (size_t)m.numInputChannels * xSize * ySize;
     singleInputGlobalElts = (size_t)m.numInputGlobalChannels;
-    singlePolicyPassResultElts = (size_t)(1);
-//    singlePolicyResultElts = (size_t)NNPos::getPolicySize(xSize, ySize);
-    singlePolicyResultElts = (size_t)xSize * ySize;
+    singlePolicyResultElts = NNPos::getPolicySize(xSize, ySize);
     singleValueResultElts = (size_t)m.numValueChannels;
     singleScoreValueResultElts = (size_t)m.numScoreValueChannels;
     singleOwnershipResultElts = (size_t)m.numOwnershipChannels * xSize * ySize;
@@ -188,14 +179,9 @@ struct InputBuffers {
     
     userInputBufferElts = (size_t)m.numInputChannels * maxBatchSize * xSize * ySize;
     userInputGlobalBufferElts = (size_t)m.numInputGlobalChannels * maxBatchSize;
-    policyPassResultBufferElts = (size_t)maxBatchSize * (1);
-    policyResultBufferElts = (size_t)maxBatchSize * singlePolicyResultElts;
-    valueResultBufferElts = (size_t)maxBatchSize * m.numValueChannels;
-    scoreValueResultBufferElts = (size_t)maxBatchSize * m.numScoreValueChannels;
-    ownershipResultBufferElts = (size_t)maxBatchSize * xSize * ySize * m.numOwnershipChannels;
-    
-    userInputBuffer = new float[(size_t)m.numInputChannels * maxBatchSize * xSize * ySize];
-    userInputGlobalBuffer = new float[(size_t)m.numInputGlobalChannels * maxBatchSize];
+
+    userInputBuffer = new float[maxBatchSize * singleInputElts];
+    userInputGlobalBuffer = new float[singleInputGlobalElts * maxBatchSize];
   }
   ~InputBuffers() {
     delete[] userInputBuffer;
@@ -336,8 +322,7 @@ void NeuralNet::getOutput(ComputeHandle* computeHandle,
     Katagob40Output *mloutput = mloutputs[row];
     
     // Policy
-    // Caution: Here the policy result size is xSize * ySize in real.
-    NSArray* expectedPolicyShape = @[@1, @2, @(inputBuffers->singlePolicyResultElts + 1)];
+    NSArray* expectedPolicyShape = @[@1, @2, @(inputBuffers->singlePolicyResultElts)];
     assert([mloutput.swa_model_policy_output.shape isEqualToArray: expectedPolicyShape]);
     
     const float* policySrcBuf = (float*)mloutput.swa_model_policy_output.dataPointer;
