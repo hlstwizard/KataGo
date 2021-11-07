@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (bool) makeMove: (Loc) loc :(Player) movePla;
 
+- (bool) reset;
 - (NSArray*) getColors;
 - (NSString*) toRequestJson: (NSString*) uuid;
 
