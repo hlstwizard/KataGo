@@ -170,8 +170,7 @@ else()
 endif()
 
 #--------------------------- KATAGO COMPILING AND LINKING --------------------------------------------------------------
-
-add_library(katago STATIC
+set(SOURCE_LIST
   ../core/global.cpp
   ../core/base64.cpp
   ../core/bsearch.cpp
@@ -263,7 +262,13 @@ add_library(katago STATIC
   ../objc/Engine.mm
   ../objc/Setup.mm
   ../objc/Game.mm
+)
+
+add_library(katago STATIC
+  ${SOURCE_LIST}
   )
+
+source_group(TREE .. FILES ${SOURCE_LIST})
 
 if(USE_BACKEND STREQUAL "CUDA")
   target_compile_definitions(katago PRIVATE USE_CUDA_BACKEND)
