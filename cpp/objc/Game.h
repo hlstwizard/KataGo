@@ -18,9 +18,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (id) init: (NSString*) rules;
 
-- (bool) makeMove: (Loc) loc :(Player) movePla;
+- (void) makeMove: (Loc) loc :(Player) movePla;
+- (void) undo;
+- (void) replay;
+- (void) reset;
 
-- (bool) reset;
 - (NSArray*) getColors;
 - (NSString*) toRequestJson: (NSString*) uuid;
 
