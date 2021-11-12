@@ -20,6 +20,7 @@ using namespace std;
 @property /*(unsafe_unretained,assign,atomic)*/ Board *board;
 @property /*(unsafe_unretained,assign,atomic)*/ vector<Move> *initialStones;
 @property /*(unsafe_unretained,assign,atomic)*/ vector<Board::MoveRecord> *moveHistory;
+//@property /*(unsafe_unretained,assign,atomic)*/ vector<Board::MoveRecord> *trialMoves;
 @property vector<Board::MoveRecord>::size_type indexInMoveHistory;
 @property Player perspective;
 @property NSString *rules;
@@ -57,11 +58,12 @@ using namespace std;
 - (void) makeMove:(Loc)loc :(Player)movePla {
   Board::MoveRecord record = _board->playMoveRecorded(loc, movePla);
   _moveHistory->push_back(record);
-  // TODO:  Trial Move, we probably need another vector to store trial moves
   _indexInMoveHistory = _moveHistory->size() - 1;
 }
 
 - (void) undo {
+  // TODO:  Trial Move, we probably need another vector to store trial moves
+  // TODO: [Critical] after undo, the getMoves still return the full moves, and it mess up.
   if (_moveHistory != nil) {
     // This is already the beginning.
     if (_indexInMoveHistory == -1) {
@@ -96,12 +98,41 @@ using namespace std;
   _board = new Board();
 }
 
+- (void) newGame:(UInt8)handicap {
+  // Cleanup
+  [self reset];
+  
+  NSArray *initStones = [[NSArray alloc] initWithObjects: @(Location::getLoc(3, 3, _xSize)),
+                         @(Location::getLoc(3, 15, _xSize)), @(Location::getLoc(15, 3, _xSize)),
+                         @(Location::getLoc(15, 15, _xSize)), @(Location::getLoc(3, 9, _xSize)),
+                         @(Location::getLoc(9, 15, _xSize)), @(Location::getLoc(15, 9, _xSize)),
+                         @(Location::getLoc(9, 3, _xSize)), @(Location::getLoc(9, 9, _xSize)),
+                         nil];
+  
+  for (int i=0; i < handicap; i++) {
+    Loc loc = [initStones[i] shortValue];
+    Move move = Move(loc, P_BLACK);
+    _initialStones->push_back(move);
+    _board->setStone(loc, P_BLACK);
+  }
+}
+
 - (NSArray*) getColors {
   NSMutableArray *array = [[NSMutableArray alloc] init];
   for (int i=0; i < _board->MAX_ARR_SIZE; i++) {
     [array addObject: [NSNumber numberWithInt: _board->colors[i]]];
   }
   return [array copy];
+}
+
+- (NSNumber*) getLastMove {
+  if (_moveHistory->empty()) {
+    return [[NSNumber alloc] initWithShort: -1];
+  } else {
+    auto end = _moveHistory->end() - 1;
+    auto record = *end;
+    return [[NSNumber alloc] initWithShort: record.loc];
+  }
 }
 
 // MARK: - Request Json
@@ -119,11 +150,26 @@ using namespace std;
   return [moves copy];
 }
 
+- (NSArray*) getInitStones {
+  NSMutableArray *stones = [[NSMutableArray alloc] init];
+  for (vector<Move>::iterator it = _initialStones->begin();
+       it != _initialStones->end(); ++it) {
+    NSString *player = [[NSString alloc] initWithCString: PlayerIO::playerToStringShort(it->pla).c_str() encoding:NSUTF8StringEncoding];
+    NSString *cord = [[NSString alloc] initWithCString: Location::toString(it->loc, _xSize, _ySize).c_str() encoding:NSUTF8StringEncoding];
+    NSArray *stone = [[NSArray alloc] initWithObjects: player, cord, nil];
+    [stones addObject:stone];
+  }
+  
+  return [stones copy];
+}
+
 - (NSString*) toRequestJson: (NSString*) uuid {
   NSArray* moves = [self getMoves];
+  NSArray* initStones = [self getInitStones];
   NSDictionary* dict = [NSDictionary dictionaryWithObjectsAndKeys:
                         uuid, @"id",
                         moves, @"moves",
+                        initStones, @"initialStones",
                         _rules, @"rules",
                         [NSNumber numberWithInt: _xSize], @"boardXSize",
                         [NSNumber numberWithInt: _ySize], @"boardYSize",
