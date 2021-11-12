@@ -19,8 +19,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (id) init: (NSString*) rules;
 
 - (void) makeMove: (Loc) loc :(Player) movePla;
-- (void) undo;
-- (void) replay;
+- (void) enterTrial;
+- (void) exitTrial;
+- (bool) undo;
+- (bool) replay;
 - (void) reset;
 - (void) newGame: (UInt8) handicap;
 
