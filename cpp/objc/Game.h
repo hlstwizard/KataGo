@@ -22,8 +22,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void) undo;
 - (void) replay;
 - (void) reset;
+- (void) newGame: (UInt8) handicap;
 
 - (NSArray*) getColors;
+- (NSNumber*) getLastMove;
 - (NSString*) toRequestJson: (NSString*) uuid;
 
 @end
