@@ -20,10 +20,12 @@ using namespace std;
 @property /*(unsafe_unretained,assign,atomic)*/ Board *board;
 @property /*(unsafe_unretained,assign,atomic)*/ vector<Move> *initialStones;
 @property /*(unsafe_unretained,assign,atomic)*/ vector<Board::MoveRecord> *moveHistory;
-//@property /*(unsafe_unretained,assign,atomic)*/ vector<Board::MoveRecord> *trialMoves;
-@property vector<Board::MoveRecord>::size_type indexInMoveHistory;
+@property /*(unsafe_unretained,assign,atomic)*/ vector<Board::MoveRecord> *trialMoves;
+@property int indexInMoveHistory;
+@property int indexInTrialMoves;
 @property Player perspective;
 @property NSString *rules;
+@property bool inTrial; // 试下
 @property int xSize;
 @property int ySize;
 
@@ -36,8 +38,11 @@ using namespace std;
   _board = new Board();
   _initialStones = new vector<Move>();
   _moveHistory = new vector<Board::MoveRecord>();
+  _trialMoves = new vector<Board::MoveRecord>();
+  _indexInMoveHistory = int(_moveHistory->size() - 1);
+  _indexInTrialMoves = int(_trialMoves->size() - 1);
+  _inTrial = false;
   _rules = rules;
-  _indexInMoveHistory = _moveHistory->size();
   _xSize = 19;
   _ySize = 19;
   return self;
@@ -47,6 +52,7 @@ using namespace std;
   delete _board;
   delete _initialStones;
   delete _moveHistory;
+  delete _trialMoves;
 }
 
 + (bool) tryLocOfString: (NSString*) str :(Loc*) loc :(NSNumber*) xSize :(NSNumber*) ySize {
@@ -57,35 +63,88 @@ using namespace std;
 // MARK: - Game
 - (void) makeMove:(Loc)loc :(Player)movePla {
   Board::MoveRecord record = _board->playMoveRecorded(loc, movePla);
-  _moveHistory->push_back(record);
-  _indexInMoveHistory = _moveHistory->size() - 1;
-}
-
-- (void) undo {
-  // TODO:  Trial Move, we probably need another vector to store trial moves
-  // TODO: [Critical] after undo, the getMoves still return the full moves, and it mess up.
-  if (_moveHistory != nil) {
-    // This is already the beginning.
-    if (_indexInMoveHistory == -1) {
-      return;
+  
+  if (_inTrial) {
+    if (_indexInTrialMoves < _trialMoves->size() - 1) {
+      // in undo, remove the rest first
+      _trialMoves->erase(_trialMoves->begin() + _indexInTrialMoves + 1, _trialMoves->end());
     }
-    auto iter = _moveHistory->begin() + _indexInMoveHistory;
-    auto record = *iter;
-    _board->undo(record);
-    _indexInMoveHistory--;
+    
+    _trialMoves->push_back(record);
+    _indexInTrialMoves = int(_trialMoves->size() - 1);
+  } else {
+    if (_indexInMoveHistory < _moveHistory->size() - 1) {
+      // in undo and not in trial
+      // TODO: If it's a loaded sgf, we shouldn't remove the rest, they should be locked.
+      _moveHistory->erase(_moveHistory->begin() + _indexInMoveHistory + 1, _moveHistory->end());
+    }
+    _moveHistory->push_back(record);
+    _indexInMoveHistory = int(_moveHistory->size() - 1);
   }
 }
 
-- (void) replay {
-  if (_moveHistory != nil) {
-    // This is already the end.
-    if (_indexInMoveHistory == _moveHistory->size() - 1) {
-      return;
+- (void) enterTrial {
+  _inTrial = true;
+}
+
+- (void) exitTrial {
+  _inTrial = false;
+  
+  for(auto it = _trialMoves->begin(); it != _trialMoves->end(); it++) {
+    _board->undo(*it);
+  }
+  _trialMoves->clear();
+  _indexInTrialMoves = int(_trialMoves->size() - 1);
+}
+
+/// return a bool indicate if can do more undo.
+- (bool) undo {
+  if (_inTrial) {
+    auto iter = _trialMoves->begin() + _indexInTrialMoves;
+    Board::MoveRecord record = *iter;
+    _board->undo(record);
+    
+    _indexInTrialMoves--;
+    if (_indexInTrialMoves == -1) {
+      return false;
     }
-    auto iter = _moveHistory->begin() + _indexInMoveHistory + 1;
+    return true;
+  } else {
+    auto iter = _moveHistory->begin() + _indexInMoveHistory;
     auto record = *iter;
+    _board->undo(record);
+    
+    _indexInMoveHistory--;
+    
+    if (_indexInMoveHistory == -1) {
+      return false;
+    }
+    return true;
+  }
+}
+
+- (bool) replay {
+  if (_inTrial) {
+    auto iter = _trialMoves->begin() + _indexInTrialMoves;
+    Board::MoveRecord record = *iter;
     _board->playMoveRecorded(record.loc, record.pla);
+    
+    _indexInTrialMoves++;
+    if (_indexInTrialMoves == _trialMoves->size() - 1) {
+      return false;
+    }
+    return true;
+    
+  } else {
+    auto iter = _moveHistory->begin() + _indexInMoveHistory + 1;
+    Board::MoveRecord record = *iter;
+    _board->playMoveRecorded(record.loc, record.pla);
+    
     _indexInMoveHistory++;
+    if (_indexInMoveHistory == _moveHistory->size() - 1) {
+      return false;
+    }
+    return true;
   }
 }
 
@@ -126,10 +185,16 @@ using namespace std;
 }
 
 - (NSNumber*) getLastMove {
-  if (_moveHistory->empty()) {
+  if (_moveHistory->empty() && _trialMoves->empty()) {
     return [[NSNumber alloc] initWithShort: -1];
   } else {
-    auto end = _moveHistory->end() - 1;
+    vector<Board::MoveRecord>::iterator end;
+    
+    if (_inTrial) {
+      end = _trialMoves->begin() + _indexInTrialMoves;
+    } else {
+      end = _moveHistory->begin() + _indexInMoveHistory;
+    }
     auto record = *end;
     return [[NSNumber alloc] initWithShort: record.loc];
   }
@@ -139,8 +204,25 @@ using namespace std;
 /// example: [["W","P5"],["B","P6"]]
 - (NSArray*) getMoves {
   NSMutableArray *moves = [[NSMutableArray alloc] init];
-  for (vector<Board::MoveRecord>::iterator it = _moveHistory->begin();
-       it != _moveHistory->end(); ++it) {
+  if (_indexInMoveHistory == -1) {
+    // undo to the very beginning
+    return [moves copy];
+  }
+  auto end = _moveHistory->begin() + _indexInMoveHistory;
+  for (auto it = _moveHistory->begin(); it <= end; ++it) {
+    NSString *player = [[NSString alloc] initWithCString: PlayerIO::playerToStringShort(it->pla).c_str() encoding:NSUTF8StringEncoding];
+    NSString *cord = [[NSString alloc] initWithCString: Location::toString(it->loc, _xSize, _ySize).c_str() encoding:NSUTF8StringEncoding];
+    NSArray *move = [[NSArray alloc] initWithObjects: player, cord, nil];
+    [moves addObject:move];
+  }
+  
+  if (_indexInTrialMoves == -1) {
+    return [moves copy];
+  }
+  
+  // add the trial moves
+  end = _trialMoves->begin() + _indexInTrialMoves;
+  for (auto it = _trialMoves->begin(); it <= end; ++it) {
     NSString *player = [[NSString alloc] initWithCString: PlayerIO::playerToStringShort(it->pla).c_str() encoding:NSUTF8StringEncoding];
     NSString *cord = [[NSString alloc] initWithCString: Location::toString(it->loc, _xSize, _ySize).c_str() encoding:NSUTF8StringEncoding];
     NSArray *move = [[NSArray alloc] initWithObjects: player, cord, nil];
