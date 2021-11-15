@@ -1,5 +1,5 @@
 DISABLE_SYMMETRIES = true
-MODEL = g170-b6c96-s175395328-d26788732
+MODEL = kata1-b40c256-s10382453504-d2531003754
 # Specify target board size below.
 SIZE = 19
 #SIZE = 7
@@ -28,7 +28,7 @@ $(SAVED_MODEL): Makefile
 
 $(FROZEN_MODEL): $(SAVED_MODEL)
 	mkdir -p $(TMP_DIR)
-	freeze_graph --input_saved_model_dir=$(SAVED_MODEL_DIR) --output_graph=$@ --output_node_names=$(OUTPUT_NODES)
+	python ~/opt/anaconda3/envs/tf-2.0/lib/python3.7/site-packages/tensorflow_core/python/tools/freeze_graph.py --input_saved_model_dir=$(SAVED_MODEL_DIR) --output_graph=$@ --output_node_names=$(OUTPUT_NODES)
 
 $(OPTIMIZED_MODEL): $(FROZEN_MODEL)
 	$(HOME)/OpenSources/tensorflow/bazel-bin/tensorflow/tools/graph_transforms/transform_graph \

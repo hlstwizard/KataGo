@@ -4,6 +4,8 @@ import traceback
 import tensorflow as tf
 import numpy as np
 
+tf.compat.v1.disable_eager_execution()
+
 from board import Board
 
 #Feature extraction functions-------------------------------------------------------------------
@@ -118,15 +120,15 @@ class Model:
 
   def assert_batched_shape(self,name,tensor,shape):
     if (len(tensor.shape) != len(shape)+1 or
-        [int(tensor.shape[i+1].value) for i in range(len(shape))] != [int(x) for x in shape]):
+        [int(tensor.shape[i+1]) for i in range(len(shape))] != [int(x) for x in shape]):
       raise Exception("%s should have shape %s after a batch dimension but instead it had shape %s" % (
-        name, str(shape), str([str(x.value) for x in tensor.shape])))
+        name, str(shape), str([str(x) for x in tensor.shape])))
 
   def assert_shape(self,name,tensor,shape):
     if (len(tensor.shape) != len(shape) or
-        [int(x.value) for x in tensor.shape] != [int(x) for x in shape]):
+        [int(x) for x in tensor.shape] != [int(x) for x in shape]):
       raise Exception("%s should have shape %s but instead it had shape %s" % (
-        name, str(shape), str([str(x.value) for x in tensor.shape])))
+        name, str(shape), str([str(x) for x in tensor.shape])))
 
   def xy_to_tensor_pos(self,x,y):
     return y * self.pos_len + x
@@ -510,27 +512,27 @@ class Model:
 
   def batchnorm_and_mask(self,name,tensor,mask,mask_sum,use_gamma_in_fixup=False):
     if self.use_fixup:
-      self.batch_norms[name] = (tensor.shape[-1].value,1e-20,True,use_gamma_in_fixup,self.use_fixup)
+      self.batch_norms[name] = (tensor.shape[-1],1e-20,True,use_gamma_in_fixup,self.use_fixup)
       if use_gamma_in_fixup:
-        gamma = self.weight_variable_init_constant(name+"/gamma", [tensor.shape[3].value], 1.0)
-        beta = self.weight_variable_init_constant(name+"/beta", [tensor.shape[3].value], 0.0, reg="tiny")
-        return (tensor * gamma + beta) * mask
+        gamma = self.weight_variable_init_constant(name+"/gamma", [tensor.shape[3]], 1.0)
+        beta = self.weight_variable_init_constant(name+"/beta", [tensor.shape[3]], 0.0, reg="tiny")
+        return tensor * gamma + beta
       else:
-        beta = self.weight_variable_init_constant(name+"/beta", [tensor.shape[3].value], 0.0, reg="tiny")
-        return (tensor + beta) * mask
+        beta = self.weight_variable_init_constant(name+"/beta", [tensor.shape[3]], 0.0, reg="tiny")
+        return tensor + beta
 
     epsilon = 0.001
     has_bias = True
     has_scale = False
-    self.batch_norms[name] = (tensor.shape[-1].value,epsilon,has_bias,has_scale,self.use_fixup)
+    self.batch_norms[name] = (tensor.shape[-1],epsilon,has_bias,has_scale,self.use_fixup)
 
-    num_channels = tensor.shape[3].value
+    num_channels = tensor.shape[3]
     collections = [tf.compat.v1.GraphKeys.GLOBAL_VARIABLES,tf.compat.v1.GraphKeys.MODEL_VARIABLES,tf.compat.v1.GraphKeys.MOVING_AVERAGE_VARIABLES]
 
     #Define variables to keep track of the mean and variance
     moving_mean = tf.compat.v1.get_variable(initializer=tf.zeros([num_channels]),name=(name+"/moving_mean"),trainable=False,collections=collections)
     moving_var = tf.compat.v1.get_variable(initializer=tf.ones([num_channels]),name=(name+"/moving_variance"),trainable=False,collections=collections)
-    beta = self.weight_variable_init_constant(name+"/beta", [tensor.shape[3].value], 0.0, reg=False)
+    beta = self.weight_variable_init_constant(name+"/beta", [tensor.shape[3]], 0.0, reg=False)
 
     #This is the mean, computed only over exactly the areas of the mask, weighting each spot equally,
     #even across different elements in the batch that might have different board sizes.
@@ -745,9 +747,17 @@ class Model:
     trans1b_pooled = self.global_pool(trans1b_layer, mask_sum_hw, mask_sum_hw_sqrt)
 
     remix_weights = self.weight_variable(name+"/w1r",[global_mid_channels*3,mid_channels],global_mid_channels*3,mid_channels, scale_initial_weights * fixup_scale4 * 0.5)
-    conv1_layer = conv1a_layer + tf.tensordot(trans1b_pooled,remix_weights,axes=[[3],[0]])
+    if True: # 推論のための最適化
+      self.batch_norms[name] = (conv1a_layer.shape[-1],1e-20,True,True,self.use_fixup)
+      gamma = self.weight_variable_init_constant(name+"/norm2/gamma", [conv1a_layer.shape[3]], 1.0)
+      beta = self.weight_variable_init_constant(name+"/norm2/beta", [conv1a_layer.shape[3]], 0.0, reg="tiny")
+      conv1_layer = conv1a_layer * gamma + beta + tf.tensordot(trans1b_pooled,remix_weights,axes=[[3],[0]]) * gamma
+      trans2_layer = self.relu(name+"/relu2",conv1_layer)
+    else:
+      conv1_layer = conv1a_layer + tf.tensordot(trans1b_pooled,remix_weights,axes=[[3],[0]])
 
-    trans2_layer = self.relu(name+"/relu2",(self.batchnorm_and_mask(name+"/norm2",conv1_layer,mask,mask_sum,use_gamma_in_fixup=True)))
+      trans2_layer = self.relu(name+"/relu2",(self.batchnorm_and_mask(name+"/norm2",conv1_layer,mask,mask_sum,use_gamma_in_fixup=True)))
+
     self.outputs_by_layer.append((name+"/trans2",trans2_layer))
 
     fixup_scale_last_layer = 0.0 if self.use_fixup else 1.0
@@ -850,7 +860,7 @@ class Model:
                     tf.compat.v1.placeholder(tf.float32, [None] + self.global_input_shape, name="global_inputs"))
     symmetries = (placeholders["symmetries"] if "symmetries" in placeholders else
                   tf.compat.v1.placeholder(tf.bool, [3], name="symmetries"))
-    include_history = (placeholders["include_history"] if "include_history" in placeholders else
+    include_history = (tf.constant(placeholders["include_history"]) if "include_history" in placeholders else
                        tf.compat.v1.placeholder(tf.float32, [None] + [5], name="include_history"))
 
     self.assert_batched_shape("bin_inputs",bin_inputs,self.bin_input_shape)
@@ -926,23 +936,34 @@ class Model:
       h3[12,12] = 1.0
       h4 = np.zeros([self.num_bin_input_features,self.num_bin_input_features],dtype=np.float32)
       h4[13,13] = 1.0
+      hist_matrix_builder = np.array([h0,h1,h2,h3,h4])
 
-    hist_matrix_base = tf.reshape(tf.constant(hist_matrix_base),[1,self.num_bin_input_features,self.num_bin_input_features])
-    hist_matrix_builder = tf.constant(np.array([h0,h1,h2,h3,h4]))
-    assert(hist_matrix_base.dtype == tf.float32)
-    assert(hist_matrix_builder.dtype == tf.float32)
-    assert(len(hist_matrix_builder.shape) == 3)
-    assert(hist_matrix_builder.shape[0].value == 5)
-    assert(hist_matrix_builder.shape[1].value == self.num_bin_input_features)
-    assert(hist_matrix_builder.shape[2].value == self.num_bin_input_features)
+    if include_history.op.type == "Const":
+      hist_filter_matrix = hist_matrix_base + np.tensordot(placeholders["include_history"], hist_matrix_builder, axes=[[1],[0]])
+      # version 8でinclude_historyがall 1.0だとhist_filter_matrixは単位行列になる
+      if not np.array_equal(hist_filter_matrix, np.identity(hist_filter_matrix.shape[-1]).reshape(hist_filter_matrix.shape)):
+        hist_filter_matrix = tf.reshape(hist_filter_matrix, [self.num_bin_input_features,self.num_bin_input_features])
+        cur_layer = tf.tensordot(cur_layer,hist_filter_matrix, axes=[[3],[0]])
+    else:
 
-    hist_filter_matrix = hist_matrix_base + tf.tensordot(include_history, hist_matrix_builder, axes=[[1],[0]]) #[batch,move] * [move,inc,outc] = [batch,inc,outc]
-    cur_layer = tf.reshape(cur_layer,[-1,self.pos_len*self.pos_len,self.num_bin_input_features]) #[batch,xy,inc]
-    cur_layer = tf.matmul(cur_layer,hist_filter_matrix) #[batch,xy,inc] * [batch,inc,outc] = [batch,xy,outc]
-    cur_layer = tf.reshape(cur_layer,[-1,self.pos_len,self.pos_len,self.num_bin_input_features])
 
-    assert(include_history.shape[1].value == 5)
-    transformed_global_inputs = global_inputs * tf.pad(include_history, [(0,0),(0,self.num_global_input_features - include_history.shape[1].value)], constant_values=1.0)
+      hist_matrix_base = tf.reshape(tf.constant(hist_matrix_base),[1,self.num_bin_input_features,self.num_bin_input_features])
+      hist_matrix_builder = tf.constant(np.array([h0,h1,h2,h3,h4]))
+      assert(hist_matrix_base.dtype == tf.float32)
+      assert(hist_matrix_builder.dtype == tf.float32)
+      assert(len(hist_matrix_builder.shape) == 3)
+      assert(hist_matrix_builder.shape[0].value == 5)
+      assert(hist_matrix_builder.shape[1].value == self.num_bin_input_features)
+      assert(hist_matrix_builder.shape[2].value == self.num_bin_input_features)
+
+      hist_filter_matrix = hist_matrix_base + tf.tensordot(include_history, hist_matrix_builder, axes=[[1],[0]]) #[batch,move] * [move,inc,outc] = [batch,inc,outc]
+      cur_layer = tf.reshape(cur_layer,[-1,self.pos_len*self.pos_len,self.num_bin_input_features]) #[batch,xy,inc]
+      cur_layer = tf.matmul(cur_layer,hist_filter_matrix) #[batch,xy,inc] * [batch,inc,outc] = [batch,xy,outc]
+      cur_layer = tf.reshape(cur_layer,[-1,self.pos_len,self.pos_len,self.num_bin_input_features])
+
+    assert(include_history.shape[1] == 5)
+    #transformed_global_inputs = global_inputs * tf.pad(include_history, [(0,0),(0,self.num_global_input_features - include_history.shape[1])], constant_values=1.0)
+    transformed_global_inputs = global_inputs # assume include_history == [1,1,1,1,1]
 
     self.transformed_bin_inputs = cur_layer
     self.transformed_global_inputs = transformed_global_inputs
@@ -1075,8 +1096,8 @@ class Model:
     pass_output = tf.tensordot(g2_layer,matmulpass,axes=[[3],[0]])
     self.outputs_by_layer.append(("pass",pass_output))
     pass_output = tf.reshape(pass_output, [-1] + [1,2])
-    policy_output = tf.concat([policy_output,pass_output],axis=1, name="policy_output")
-
+    policy_output = tf.concat([policy_output,pass_output],axis=1)
+    policy_output = tf.transpose(policy_output, [0,2,1], name="policy_output")
     self.policy_output = policy_output
 
     #Value head---------------------------------------------------------------------------------

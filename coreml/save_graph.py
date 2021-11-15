@@ -11,6 +11,7 @@ if __name__ == "__main__":
     description = """
     save a model in saved model format
     """
+    tf.compat.v1.disable_v2_behavior()
 
     parser = argparse.ArgumentParser(description=description)
     common.add_model_load_args(parser)

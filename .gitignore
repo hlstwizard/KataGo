@@ -78,6 +78,9 @@ CMakeFiles/
 # Makefile
 cmake_install.cmake
 
+coreml/saved_model
+coreml/tmp
+
 .DS_Store
 GPATH
 GRTAGS
