@@ -75,7 +75,7 @@ cpp/build.ios-simulator/CMakeScripts
 # For cmake
 CMakeCache.txt
 CMakeFiles/
-Makefile
+# Makefile
 cmake_install.cmake
 
 .DS_Store
