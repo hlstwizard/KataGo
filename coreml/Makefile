@@ -20,6 +20,10 @@ OUTPUT_NODES = swa_model/policy_output,swa_model/value_output,swa_model/miscvalu
 TARGET_DIR = web_model
 TARGET = $(TARGET_DIR)/model.json
 
+SITE_PACKAGE_DIR = /home/hlst/miniconda3/envs/katago/lib/python3.7/site-packages
+
+FREEZE_GRAPH = $(SITE_PACKAGE_DIR)/tensorflow_core/python/tools/freeze_graph.py
+
 all: $(TARGET)
 
 $(SAVED_MODEL): Makefile
@@ -28,7 +32,7 @@ $(SAVED_MODEL): Makefile
 
 $(FROZEN_MODEL): $(SAVED_MODEL)
 	mkdir -p $(TMP_DIR)
-	python ~/opt/anaconda3/envs/tf-2.0/lib/python3.7/site-packages/tensorflow_core/python/tools/freeze_graph.py --input_saved_model_dir=$(SAVED_MODEL_DIR) --output_graph=$@ --output_node_names=$(OUTPUT_NODES)
+	python $(FREEZE_GRAPH) --input_saved_model_dir=$(SAVED_MODEL_DIR) --output_graph=$@ --output_node_names=$(OUTPUT_NODES)
 
 $(OPTIMIZED_MODEL): $(FROZEN_MODEL)
 	$(HOME)/OpenSources/tensorflow/bazel-bin/tensorflow/tools/graph_transforms/transform_graph \

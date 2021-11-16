@@ -58,6 +58,7 @@ out.txt
 
 # For Xcode
 cpp/Debug/
+cpp/Makefile
 cpp/katago.build/
 cpp/katago.xcodeproj/
 
@@ -75,11 +76,13 @@ cpp/build.ios-simulator/CMakeScripts
 # For cmake
 CMakeCache.txt
 CMakeFiles/
-# Makefile
+Makefile
 cmake_install.cmake
 
 coreml/saved_model
+coreml/saved_model2
 coreml/tmp
+coreml/*.mlmodel
 
 .DS_Store
 GPATH

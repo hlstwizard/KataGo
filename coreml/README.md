@@ -11,7 +11,9 @@
 pip install tensorflow
 ```
 3. Locate the freeze_graph, and edit FROZEN_MODEL in `Makefile`
-
+```console
+python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())"
+```
 
 ## Make
 1. `make saved_model/saved_model.pb`
