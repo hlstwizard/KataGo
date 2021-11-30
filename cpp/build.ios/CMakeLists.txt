@@ -261,7 +261,6 @@ set(SOURCE_LIST
   ../version.cpp
   ../objc/Engine.mm
   ../objc/Setup.mm
-  ../objc/Game.mm
 )
 
 add_library(katago STATIC

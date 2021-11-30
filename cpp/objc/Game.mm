@@ -1,4 +1,5 @@
-//
+//  Deprecated with Swift Implementation
+// 
 //  Game.m
 //  katago
 //
