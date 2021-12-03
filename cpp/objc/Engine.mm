@@ -120,13 +120,12 @@ struct AnalyzeRequest {
 
 - (NSString*) fetchResult {
   string *result;
-  if (_results->tryPop(result)) {
+  if (_results->waitPop(result)) {
     NSString *r = [[NSString alloc] initWithCString:result->c_str() encoding:NSUTF8StringEncoding];
     delete result;
     return r;
   }
-  // No result
-  return @"";
+  return @"terminate";
 }
 
 //- (NSArray*) getColors {
@@ -238,7 +237,7 @@ struct AnalyzeRequest {
       
       // This will be fetched in the Swift App
       string *result = new string(*message);
-      _results->pushUnsynchronized(result);
+      _results->forcePush(result);
       
 #ifndef NDEBUG
       cout << *message << endl;
